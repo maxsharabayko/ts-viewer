@@ -59,6 +59,14 @@ type SpsInfo = {
   fields: Array<{ label: string; value: string | number | boolean }>
 }
 
+type WorkerEvent = {
+  type: string
+  payload?: ProbeResult
+  error?: string
+  phase?: string
+  value?: number
+}
+
 const emptyResult = (fileName = 'No file selected'): ProbeResult => ({
   streams: [],
   chapters: [],
@@ -82,7 +90,7 @@ function App() {
     let cancelled = false
     const worker = new Worker(new URL('./workers/tsAnalyzerWorker.ts', import.meta.url), { type: 'module' })
     worker.onmessage = (event) => {
-      const message = event.data as { type: string; payload?: ProbeResult; error?: string }
+      const message = event.data as WorkerEvent
       if (cancelled) return
       if (message.type === 'ready') setWorkerReady(true)
       if (message.type === 'progress') {
@@ -126,7 +134,7 @@ function App() {
     setResult((current) => ({ ...current, error: undefined }))
     const worker = new Worker(new URL('./workers/tsAnalyzerWorker.ts', import.meta.url), { type: 'module' })
     worker.onmessage = (event) => {
-      const message = event.data as { type: string; payload?: ProbeResult; error?: string }
+      const message = event.data as WorkerEvent
       if (message.type === 'result' && message.payload) {
         setResult(message.payload)
         setLoading(false)
@@ -334,37 +342,6 @@ function formatParsedMetadata(result: ProbeResult) {
   return text && text !== '{}' ? text : 'No parsed metadata.'
 }
 
-function SpsTree({ streamIndex, codec, sps }: { streamIndex: number; codec: string; sps: SpsInfo }) {
-  const [open, setOpen] = useState(true)
-  return (
-    <div className="sps-tree">
-      <div className="sps-tree-head" onClick={() => setOpen((value) => !value)}>
-        <span className="toggle">{open ? '▾' : '▸'}</span>
-        <div className="sps-tree-title">
-          <strong>{codec.toUpperCase()} SPS</strong>
-          <span>Stream {streamIndex} · pkt {sps.packetIndex}</span>
-        </div>
-      </div>
-      {open && (
-        <div className="sps-tree-body">
-          <div className="sps-tree-table">
-            <div className="sps-row sps-row-head">
-              <span>Property</span>
-              <span>Value</span>
-            </div>
-            {sps.fields.map((field) => (
-              <div className="sps-row" key={field.label}>
-                <span className="key">{field.label}</span>
-                <span className="value">{String(field.value)}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
-
 function HeaderTree({
   streamIndex,
   codec,
@@ -432,7 +409,7 @@ function renderSelectedSpsDetail(streams: ProbeStream[], selectedKey: string | n
   const stream = streams.find((item) => item.index === streamIndex)
   const header = stream?.headers?.[headerIndex]
   const sps = stream?.spsInfo?.find((item) => item.packetIndex === header?.packetIndex)
-  if (!sps) return null
+  if (!stream || !sps) return null
   return (
     <div className="header-detail header-detail-sps">
       <div className="header-detail-head">
