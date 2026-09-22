@@ -22,3 +22,4 @@ Open the local URL printed by Vite (typically http://localhost:5173).
 ## Notes
 - The analyzer is intentionally client-side and worker-backed.
 - The SPS fields shown in the detail pane are pragmatic metadata, not a full codec conformance view.
+- This repo is now standalone TS viewer code; the old GStreamer parser and tree components were removed.
