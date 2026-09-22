@@ -137,8 +137,8 @@ function scanTransportStream(data: Uint8Array): Omit<ProbeResult, 'raw' | 'parse
 
   const streams = [...streamsByPid.values()]
     .map((stream, index) => ({
-      index,
       ...stream,
+      index,
       headerSummary: summarizeHeaders(stream),
     }))
     .sort((a, b) => a.index - b.index)
@@ -407,6 +407,18 @@ function bitsValue(fields: Array<{ label: string; value: string | number | boole
   return typeof found?.value === 'number' ? found.value : 0
 }
 
+function skipScalingList(bits: BitReader, size: number) {
+  let lastScale = 8
+  let nextScale = 8
+  for (let i = 0; i < size; i++) {
+    if (nextScale !== 0) {
+      const deltaScale = bits.readSE()
+      nextScale = (lastScale + deltaScale + 256) % 256
+    }
+    lastScale = nextScale === 0 ? lastScale : nextScale
+  }
+}
+
 function removeEmulationPreventionBytes(data: Uint8Array): Uint8Array {
   const out: number[] = []
   for (let i = 0; i < data.length; i++) {
@@ -421,7 +433,13 @@ function removeEmulationPreventionBytes(data: Uint8Array): Uint8Array {
 }
 
 class BitReader {
-  constructor(private readonly data: Uint8Array, private bitOffset = 0) {}
+  private readonly data: Uint8Array
+  private bitOffset: number
+
+  constructor(data: Uint8Array, bitOffset = 0) {
+    this.data = data
+    this.bitOffset = bitOffset
+  }
 
   readBits(count: number): number {
     let value = 0
